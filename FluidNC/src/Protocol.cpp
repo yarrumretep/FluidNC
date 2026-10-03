@@ -284,6 +284,23 @@ static void heap_monitor_poll() {
 
 bool pollingPaused = false;
 
+// Events that could not be queued are counted (a diagnostic, so the ISR/task
+// increments need not be atomic) and reported by the polling task.  A dropped
+// cycleStopEvent is remembered separately: it is the step ISR's only way to
+// end a cycle, and losing it leaves the state machine in Cycle or Hold until
+// a reset.
+static volatile uint32_t event_drops        = 0;
+static volatile bool     cycle_stop_pending = false;
+
+static void report_event_drops() {
+    static uint32_t reported = 0;
+    uint32_t        drops    = event_drops;
+    if (drops != reported) {
+        log_warn("Event queue full: dropped " << (drops - reported) << " event(s), " << drops << " total");
+        reported = drops;
+    }
+}
+
 // One pass of the polling loop.  Factored out of polling_loop() so that the
 // whole pass can be wrapped in a try block; "continue" becomes "return".
 static void poll_once() {
@@ -291,6 +308,7 @@ static void poll_once() {
         // Poll the input sources waiting for a complete line to arrive
         /*feedLoopWDT(), */ vTaskDelay(1);
         report_watchdog_timeouts();
+        report_event_drops();
         // Polling is paused when xmodem is using a channel for binary upload
         if (pollingPaused) {
             // xmodem only pauses channel *input*; log output must keep moving
@@ -1530,11 +1548,21 @@ void protocol_init() {
 
 void IRAM_ATTR protocol_send_event_from_ISR(const Event* evt, void* arg) {
     EventItem item { evt, arg };
-    xQueueSendFromISR(event_queue, &item, NULL);
+    if (xQueueSendFromISR(event_queue, &item, NULL) != pdTRUE) {
+        ++event_drops;
+        if (evt == &cycleStopEvent) {
+            cycle_stop_pending = true;
+        }
+    }
 }
 void protocol_send_event(const Event* evt, void* arg) {
     EventItem item { evt, arg };
-    xQueueSend(event_queue, &item, 0);
+    // Wait briefly for room rather than dropping the event.  The protocol
+    // task is the only consumer, so if that is the caller the wait simply
+    // expires; from any other task it lets a momentarily full queue drain.
+    if (xQueueSend(event_queue, &item, pdMS_TO_TICKS(10)) != pdTRUE) {
+        ++event_drops;
+    }
 }
 void protocol_handle_events() {
     feed_watchdog();
@@ -1542,6 +1570,10 @@ void protocol_handle_events() {
     while (xQueueReceive(event_queue, &item, 0)) {
         item.event->run(item.arg);
         feed_watchdog();
+    }
+    if (cycle_stop_pending) {
+        cycle_stop_pending = false;
+        cycleStopEvent.run(nullptr);
     }
 }
 void send_alarm(ExecAlarm alarm) {

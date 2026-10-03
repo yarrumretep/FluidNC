@@ -155,7 +155,8 @@ static void gpio_send_event(int32_t gpio_num, bool active) {
 
         auto arg = gpioArgs[gpio_num];
         if (arg) {
-            protocol_send_event_from_ISR(active ? &pinActiveEvent : &pinInactiveEvent, arg);
+            // Called from the polling task, not an ISR
+            protocol_send_event(active ? &pinActiveEvent : &pinInactiveEvent, arg);
         }
         gpios_update(gpios_current, gpio_num, active);
     }
@@ -175,7 +176,7 @@ void gpio_rearm(int32_t gpio_num) {
         if (!(get_gpios() & mask)) {
             auto arg = gpioArgs[gpio_num];
             if (arg) {
-                protocol_send_event_from_ISR(&pinInactiveEvent, arg);
+                protocol_send_event(&pinInactiveEvent, arg);  // task context
             }
         }
     }
