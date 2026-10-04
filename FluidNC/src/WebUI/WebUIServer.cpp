@@ -1589,7 +1589,9 @@ namespace WebUI {
             dnsServer.processNextRequest();
         }
 #endif
-        if (_schedule_reboot and _schedule_reboot_time == millis()) {
+        // ">=" with the wrap-safe subtraction, not "==": poll_once() does enough
+        // work between passes that landing on the exact millisecond is luck.
+        if (_schedule_reboot && (int32_t)(millis() - _schedule_reboot_time) >= 0) {
             _schedule_reboot = false;
             protocol_send_event(&fullResetEvent);
         }
