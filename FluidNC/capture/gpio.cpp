@@ -80,7 +80,7 @@ void gpio_rearm(int32_t gpio_num) {
         if (!(get_gpios() & mask)) {
             auto arg = gpioArgs[gpio_num];
             if (arg) {
-                protocol_send_event_from_ISR(&pinInactiveEvent, arg);
+                protocol_send_event(&pinInactiveEvent, arg);  // task context
             }
         }
     }
