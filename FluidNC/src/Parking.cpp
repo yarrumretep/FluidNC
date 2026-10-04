@@ -79,7 +79,7 @@ void Parking::setup() {
 }
 
 void Parking::set_target() {
-    copyAxes(parking_target, get_mpos());
+    get_mpos(parking_target);
 }
 
 void Parking::park(bool restart) {

@@ -101,38 +101,39 @@ void get_steps(steps_t* steps) {
     }
 }
 
-// Position in motor steps for all axes
-steps_t* get_steps() {
-    static steps_t steps[MAX_N_AXIS];
-
-    get_steps(steps);
-    return steps;
+// The conversions below fill only the configured axes; zero the rest so a
+// caller that copies the whole array sees what the old zero-filled static
+// buffers used to give it.
+static void zero_unused_axes(float* position) {
+    for (axis_t axis = Axes::_numberAxis; axis < MAX_N_AXIS; axis++) {
+        position[axis] = 0;
+    }
 }
 
 // Position in mm in motor space for all axes
-float* get_motor_pos() {
-    static float motor_pos[MAX_N_AXIS];
-    steps_to_motor_pos(motor_pos, get_steps());
-    return motor_pos;
+void get_motor_pos(float* motor_pos) {
+    steps_t steps[MAX_N_AXIS] = { 0 };
+    get_steps(steps);
+    steps_to_motor_pos(motor_pos, steps);
+    zero_unused_axes(motor_pos);
 }
 
 // Position in mm in Cartesian space for all axes, accounting for kinematics
-float* get_mpos() {
-    static float position[MAX_N_AXIS];
+void get_mpos(float* position) {
+    steps_t steps[MAX_N_AXIS] = { 0 };
+    get_steps(steps);
+    steps_to_mpos(position, steps);
+    zero_unused_axes(position);
+}
 
-    steps_to_mpos(position, get_steps());
-    return position;
-};
-
-float* get_wco() {
-    static float wco[MAX_N_AXIS];
-    auto         n_axis = Axes::_numberAxis;
+void get_wco(float* wco) {
+    auto n_axis = Axes::_numberAxis;
     for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
         // Apply work coordinate offsets and tool length offset to current position.
         wco[axis] = gc_state.coord_system[axis] + gc_state.coord_offset[axis];
         wco[axis] += gc_state.tool_length_offset[axis];
     }
-    return wco;
+    zero_unused_axes(wco);
 }
 
 const std::map<State, const char*> StateName = {

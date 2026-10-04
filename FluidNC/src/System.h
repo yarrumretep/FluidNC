@@ -186,16 +186,17 @@ steps_t get_axis_steps(axis_t axis);
 void    set_steps(axis_t axis, steps_t steps);
 void    set_motor_pos(size_t motor, float motor_pos);
 
-// All axes
-steps_t* get_steps();
-void     steps_to_motor_pos(float* motor_pos, steps_t* steps);
-void     motor_pos_to_steps(steps_t* steps, float* motor_pos);
-void     get_steps(steps_t* steps);
-float*   get_motor_pos();
-void     set_motor_pos(float* motor_pos, size_t n_motors);
-void     steps_to_mpos(float* position, steps_t* steps);
+// All axes.  These fill caller-provided arrays of MAX_N_AXIS entries.  They
+// run on both the protocol task and the polling task (? reports), so they
+// must not hand out shared static storage.
+void steps_to_motor_pos(float* motor_pos, steps_t* steps);
+void motor_pos_to_steps(steps_t* steps, float* motor_pos);
+void get_steps(steps_t* steps);
+void get_motor_pos(float* motor_pos);
+void set_motor_pos(float* motor_pos, size_t n_motors);
+void steps_to_mpos(float* position, steps_t* steps);
 
-float* get_mpos();
-float* get_wco();
+void get_mpos(float* position);
+void get_wco(float* wco);
 
 bool inMotionState();  // True if moving, i.e. the stepping engine is active

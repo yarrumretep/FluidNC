@@ -204,8 +204,9 @@ namespace Kinematics {
         auto axes   = config->_axes;
         auto n_axis = Axes::_numberAxis;
 
-        float*    current_position = get_mpos();
-        MotorMask lim_pin_state    = limits_get_state();
+        float current_position[MAX_N_AXIS];
+        get_mpos(current_position);
+        MotorMask lim_pin_state = limits_get_state();
 
         for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
             auto axisSetting = axes->_axis[axis];
@@ -330,7 +331,7 @@ namespace Kinematics {
 
     void Cartesian::axesVector(
         AxisMask axisMask, MotorMask motors, Machine::Homing::Phase phase, float* target, float& rate, uint32_t& settle_ms) {
-        copyAxes(target, get_mpos());
+        get_mpos(target);
 
         log_debug("Starting from " << target[0] << "," << target[1] << "," << target[2]);
 
@@ -507,7 +508,9 @@ namespace Kinematics {
         plan_data.is_jog                = false;
         plan_data.feed_rate             = rate;  // Magnitude of homing rate vector
 
-        cartesian_to_motors(target, &plan_data, get_mpos());
+        float position[MAX_N_AXIS];
+        get_mpos(position);
+        cartesian_to_motors(target, &plan_data, position);
 
         protocol_send_event(&cycleStartEvent);
     }
