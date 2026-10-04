@@ -364,7 +364,12 @@ Error gc_execute_line(const char* input_line, Channel& channel) {
     int32_t    int_value = 0;
     int32_t    mantissa  = 0;
     pos                  = jogMotion ? 3 : 0;  // Start parsing after `$J=` if jogging
-    while ((letter = line[pos]) != '\0') {     // Loop until no more g-code words in line.
+
+    // M7.1 / M8.1 turn the coolant off.  Captured when the M word is parsed,
+    // because mantissa is per-word scratch and holds the last word's fraction
+    // by execute time.
+    bool coolant_off = false;
+    while ((letter = line[pos]) != '\0') {  // Loop until no more g-code words in line.
         if (letter == '#') {
             if (gc_state.skip_blocks) {
                 return Error::Ok;
@@ -733,6 +738,7 @@ Error gc_execute_line(const char* input_line, Channel& channel) {
                                 if (mantissa && mantissa != 10) {
                                     return Error::GcodeUnsupportedCommand;  // M7 and M7.1 are supported
                                 }
+                                coolant_off = mantissa == 10;
                                 if (config->_coolant->hasMist()) {
                                     gc_block.coolant = GCodeCoolant::M7;
                                 }
@@ -741,6 +747,7 @@ Error gc_execute_line(const char* input_line, Channel& channel) {
                                 if (mantissa && mantissa != 10) {
                                     return Error::GcodeUnsupportedCommand;  // M8 and M8.1 are supported
                                 }
+                                coolant_off = mantissa == 10;
                                 if (config->_coolant->hasFlood()) {
                                     gc_block.coolant = GCodeCoolant::M8;
                                 }
@@ -1791,11 +1798,14 @@ Error gc_execute_line(const char* input_line, Channel& channel) {
         switch (gc_block.coolant) {
             case GCodeCoolant::None:
                 break;
+            // coolant_off was captured when the M word was parsed.  mantissa is
+            // per-word scratch that by now holds the last word of the block, so
+            // "M8 G0 X10.1" used to turn flood off.
             case GCodeCoolant::M7:
-                gc_state.modal.coolant.Mist = mantissa == 10 ? 0 : 1;
+                gc_state.modal.coolant.Mist = coolant_off ? 0 : 1;
                 break;
             case GCodeCoolant::M8:
-                gc_state.modal.coolant.Flood = mantissa == 10 ? 0 : 1;
+                gc_state.modal.coolant.Flood = coolant_off ? 0 : 1;
                 break;
             case GCodeCoolant::M9:
                 gc_state.modal.coolant = {};
