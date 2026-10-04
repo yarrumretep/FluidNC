@@ -55,6 +55,10 @@ namespace MotorDrivers {
         tmc2208->en_spreadCycle(false);
         tmc2208->pwm_autoscale(true);
 
+        // See TMC2209Driver::set_registers(): without this, the chip runs the
+        // library's default TOFF of 3 unless use_enable is true.
+        tmc2208->toff(TrinamicUartDriver::toffValue());
+
         _cs_pin.synchronousWrite(false);
     }
 

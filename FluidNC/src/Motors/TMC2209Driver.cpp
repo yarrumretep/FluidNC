@@ -81,7 +81,10 @@ namespace MotorDrivers {
             return;
         }
 
-        TrinamicMode _mode = static_cast<TrinamicMode>(trinamicModes[isHoming ? _homing_mode : _run_mode].value);
+        // Assign the member, not a local: toffValue() and set_homing_phase()
+        // read TrinamicBase::_mode, which a local declaration left stuck at
+        // its StealthChop initialiser whatever run_mode or homing_mode said.
+        _mode = static_cast<TrinamicMode>(trinamicModes[isHoming ? _homing_mode : _run_mode].value);
 
         // Run and hold current configuration items are in (float) Amps,
         // but the TMCStepper library expresses run current as (uint16_t) mA
@@ -120,6 +123,14 @@ namespace MotorDrivers {
                 break;
             }
         }
+
+        // TOFF used to be written only from set_disable(), and only with
+        // use_enable: true.  Without that, the chip kept the library's
+        // CHOPCONF default of 3 (re-sent by every microsteps() call) no matter
+        // what toff_stealthchop or toff_coolstep said.  toffValue() returns
+        // toff_disable while the driver is disabled, so this is safe to write
+        // on every mode switch.
+        tmc2209->toff(TrinamicUartDriver::toffValue());
 
         // Most TMCStepper setters above use local shadow registers and are
         // write-only.  Several getters below read the device, so omit the dump
