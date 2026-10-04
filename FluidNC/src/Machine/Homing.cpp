@@ -287,7 +287,8 @@ namespace Machine {
         auto axes   = config->_axes;
         auto n_axis = axes->_numberAxis;
 
-        float*      mpos = get_mpos();
+        float mpos[MAX_N_AXIS];
+        get_mpos(mpos);
         std::string homedAxes;
         //        logArray("mpos was", mpos, n_axis);
         // Replace coordinates homed axes with the homing values.
@@ -306,7 +307,7 @@ namespace Machine {
 
         config->_kinematics->set_homed_mpos(mpos);
 
-        mpos = get_mpos();
+        get_mpos(mpos);
         //        logArray("mpos transformed", mpos, n_axis);
 
         sys.step_control = {};                     // Return step control to normal operation.
@@ -347,8 +348,9 @@ namespace Machine {
             auto homing = Axes::_axis[axis]->_homing;
             if (homing && homing->_cycle == set_mpos_only) {
                 if (axisMask == 0 || axisMask & 1 << axis) {
-                    float* mpos = get_mpos();
-                    mpos[axis]  = homing->_mpos;
+                    float mpos[MAX_N_AXIS];
+                    get_mpos(mpos);
+                    mpos[axis] = homing->_mpos;
                     config->_kinematics->set_homed_mpos(mpos);
                     if (axisMask == bitnum_to_mask(axis)) {
                         return;

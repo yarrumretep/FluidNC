@@ -188,7 +188,8 @@ bool get_numbered_param(ngc_param_id_t id, float& result) {
     // Current relative position in the active coordinate system including all offsets
     axis = axis_from_id(id, 5420);
     if (is_axis(axis)) {
-        float* my_position = get_mpos();
+        float my_position[MAX_N_AXIS];
+        get_mpos(my_position);
         mpos_to_wpos(my_position);
         result = to_inches(axis, my_position[axis]);
         return true;
@@ -258,13 +259,18 @@ bool get_system_param(const std::string& name, float& result) {
         sysn += ::tolower(c);
     }
     if (auto search = work_positions.find(sysn); search != work_positions.end()) {
-        auto axis = search->second;
-        result    = to_inches(axis, get_mpos()[axis] - get_wco()[axis]);
+        auto  axis = search->second;
+        float mpos[MAX_N_AXIS], wco[MAX_N_AXIS];
+        get_mpos(mpos);
+        get_wco(wco);
+        result = to_inches(axis, mpos[axis] - wco[axis]);
         return true;
     }
     if (auto search = machine_positions.find(sysn); search != machine_positions.end()) {
-        auto axis = search->second;
-        result    = to_inches(axis, get_mpos()[axis]);
+        auto  axis = search->second;
+        float mpos[MAX_N_AXIS];
+        get_mpos(mpos);
+        result = to_inches(axis, mpos[axis]);
         return true;
     }
     if (std::find(unsupported_sys.begin(), unsupported_sys.end(), sysn) != unsupported_sys.end()) {

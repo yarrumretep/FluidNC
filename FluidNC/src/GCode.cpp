@@ -77,7 +77,9 @@ void gc_init() {
 // Sets g-code parser position in mm. Input in steps. Called by the system abort and hard
 // limit pull-off routines.
 void gc_sync_position() {
-    steps_to_mpos(gc_state.position, get_steps());
+    steps_t steps[MAX_N_AXIS];
+    get_steps(steps);
+    steps_to_mpos(gc_state.position, steps);
 }
 
 static bool decode_format_string(const char* comment, size_t& index, size_t len, const char*& format) {

@@ -415,8 +415,9 @@ void report_echo_line_received(const char* line, Channel& channel) {
 // bool wpos            = true for work position compensation
 
 void mpos_to_wpos(float* position) {
-    float* wco    = get_wco();
-    auto   n_axis = Axes::_numberAxis;
+    float wco[MAX_N_AXIS];
+    get_wco(wco);
+    auto n_axis = Axes::_numberAxis;
     for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
         position[axis] -= wco[axis];
     }
@@ -502,7 +503,12 @@ void report_realtime_status(Channel& channel) {
 
     // Report position
 
-    float* print_position = state_is(State::Homing) ? get_motor_pos() : get_mpos();
+    float print_position[MAX_N_AXIS];
+    if (state_is(State::Homing)) {
+        get_motor_pos(print_position);
+    } else {
+        get_mpos(print_position);
+    }
     if (bits_are_true(status_mask->get(), RtStatus::Position)) {
         msg << "|MPos:";
     } else {
@@ -557,7 +563,9 @@ void report_realtime_status(Channel& channel) {
         if (report_ovr_counter == 0) {
             report_ovr_counter = 1;  // Set override on next report.
         }
-        msg << "|WCO:" << report_util_axis_values(get_wco()).c_str();
+        float wco[MAX_N_AXIS];
+        get_wco(wco);
+        msg << "|WCO:" << report_util_axis_values(wco).c_str();
     }
 
     if (report_ovr_counter > 0) {

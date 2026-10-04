@@ -396,7 +396,7 @@ namespace Kinematics {
                 break;
         }
 
-        copyArray(_last_motor_pos, get_motor_pos(), n_axis);
+        get_motor_pos(_last_motor_pos);
     }
 
     void ParallelDelta::homing_move(AxisMask axisMask, MotorMask motorMask, Machine::Homing::Phase phase, uint32_t& settling_ms) {
@@ -428,7 +428,7 @@ namespace Kinematics {
         // motorVector only adjusts the delta motors and we do not want
         // to move other ones
         float motor_pos[MAX_N_AXIS];
-        copyAxes(motor_pos, get_motor_pos());
+        get_motor_pos(motor_pos);
 
         motorVector(axisMask, motorMask, phase, motor_pos, plan_data.feed_rate, settling_ms);
 
