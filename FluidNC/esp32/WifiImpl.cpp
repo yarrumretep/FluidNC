@@ -59,7 +59,7 @@ namespace WebUI {
         return macstr;
     }
 
-    static void wifiEventHandler(WiFiEvent_t event) {
+    static void wifiEventHandler(WiFiEvent_t event, WiFiEventInfo_t info) {
         static bool disconnect_seen = false;
         switch (event) {
             case SYSTEM_EVENT_STA_GOT_IP:
@@ -67,7 +67,14 @@ namespace WebUI {
                 break;
             case WIFI_EVENT_STA_DISCONNECTED:
                 if (!disconnect_seen) {
-                    log_info_to(Console, "WiFi Disconnected");
+                    // The core logs the reason too, but only at a debug level
+                    // this build compiles out.  The reason decides whether the
+                    // core will try to reconnect on its own, so it belongs in
+                    // the normal log.
+                    auto reason = info.wifi_sta_disconnected.reason;
+                    log_info_to(Console,
+                                "WiFi Disconnected, reason " << int(reason) << " ("
+                                                             << WiFi.disconnectReasonName(static_cast<wifi_err_reason_t>(reason)) << ")");
                     disconnect_seen = true;
                 }
                 break;
