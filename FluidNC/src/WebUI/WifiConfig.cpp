@@ -133,8 +133,50 @@ namespace WebUI {
         j.end();
     }
 
+    // True while the station was started successfully, so the link watchdog
+    // in poll() may act.  Cleared when WiFi is stopped.
+    static bool _sta_link_watchdog = false;
+
     class WiFiConfig : public Module {
     private:
+        // Link watchdog.  The Arduino core's auto-reconnect retries only a
+        // fixed list of disconnect reasons.  An AP that drops us with reason 8
+        // (station leaving) or 12 (BSS transition, which mesh and multi-AP
+        // systems use to steer clients) leaves the station in "Not connected"
+        // until a reboot, with the radio and the AP both fine.  So watch the
+        // link ourselves and restart the station, with backoff.
+        static void staLinkWatchdog() {
+            static uint32_t down_since   = 0;
+            static uint32_t next_attempt = 0;
+            static uint32_t backoff_ms   = 10000;
+
+            if (WiFi.status() == WL_CONNECTED) {
+                down_since = 0;
+                backoff_ms = 10000;
+                return;
+            }
+            uint32_t now = millis();
+            if (down_since == 0) {
+                down_since   = now;
+                next_attempt = now + backoff_ms;
+                return;
+            }
+            if ((int32_t)(now - next_attempt) < 0) {
+                return;
+            }
+            log_info("WiFi link down for " << (now - down_since) / 1000 << " s, reconnecting to " << _sta_ssid->get());
+            WiFi.disconnect();
+            const char* password = _sta_password->get();
+            wifiImpl().beginSta(_sta_ssid->get(), (strlen(password) > 0) ? password : NULL, nullptr);
+            if (backoff_ms < 60000) {
+                backoff_ms *= 2;
+                if (backoff_ms > 60000) {
+                    backoff_ms = 60000;
+                }
+            }
+            next_attempt = now + backoff_ms;
+        }
+
         static void print_mac(Channel& out, const char* prefix, const char* mac) { log_stream(out, prefix << " (" << mac << ")"); }
 
         static Error showIP(const char* parameter, AuthenticationLevel auth_level, Channel& out) {  // ESP111
@@ -611,6 +653,7 @@ namespace WebUI {
         }
 
         static void StopWiFi() {
+            _sta_link_watchdog = false;
             if (WiFi.getMode() != WIFI_OFF) {
                 if ((WiFi.getMode() == WIFI_STA) || (WiFi.getMode() == WIFI_AP_STA)) {
                     WiFi.disconnect(true);
@@ -723,11 +766,13 @@ namespace WebUI {
                     return;
                 case WiFiSTA:
                     if (StartSTA()) {
+                        _sta_link_watchdog = true;
                         goto wifi_on;
                     }
                     goto wifi_off;
                 case WiFiFallback:
                     if (StartSTA()) {
+                        _sta_link_watchdog = true;
                         goto wifi_on;
                     } else {  // STA failed, reset
                         WiFi.mode(WIFI_OFF);
@@ -771,7 +816,12 @@ namespace WebUI {
             }
         }
 
-        void poll() { wifiImpl().poll(); }
+        void poll() {
+            wifiImpl().poll();
+            if (_sta_link_watchdog) {
+                staLinkWatchdog();
+            }
+        }
 
         bool is_radio() override { return true; }
 
